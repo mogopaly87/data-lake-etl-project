@@ -11,6 +11,9 @@ output = os.environ["OUTPUT_DATA_DIR"]
 
 
 def create_spark_session():
+    """
+    Creates a SparkSession object and returns it.
+    """
     spark = SparkSession.builder.config(
         "spark.jars.packages", "org.apache.hadoop:hadoop-aws:2.7.0"
     ).getOrCreate()
@@ -18,14 +21,18 @@ def create_spark_session():
 
 
 def process_song_data(spark):
-
+    """
+    Takes in a spark session that used to read and process input song data source.
+    A dataframe is created from input data. The dataframe is used to create temporary views from which
+    dimensional tables are created and writen to output s3 buckets.
+    """
     # read song data file
     df_song_data = spark.read.json(song_data_source)
 
     # extract columns to create songs table
     df_song_data.createOrReplaceTempView("songs_table_view")
     songs_table = spark.sql(
-        "SELECT artist_name, song_id, title, artist_id, year, duration FROM songs_table_view"
+        "SELECT DISTINCT artist_name, song_id, title, artist_id, year, duration FROM songs_table_view"
     )
 
     # create timestamp attached to each song parquet file
@@ -39,7 +46,7 @@ def process_song_data(spark):
     df_song_data.createOrReplaceTempView("artist_table_view")
     artist_table = spark.sql(
         "\
-        SELECT artist_id, artist_name AS name, artist_location AS location, artist_latitude AS latitude, artist_longitude AS longitude\
+        SELECT DISTINCT artist_id, artist_name AS name, artist_location AS location, artist_latitude AS latitude, artist_longitude AS longitude\
         FROM artist_table_view "
     )
 
@@ -53,6 +60,11 @@ def process_song_data(spark):
 
 def process_log_data(spark):
 
+    """
+    Takes in a spark session that used to read and process input log data source.
+    A dataframe is created from input data. The dataframe is used to create temporary views from which
+    dimensional tables are created and writen to output s3 buckets.
+    """
     # read log data file
     df_log_data = spark.read.json(log_data_source)
 
@@ -94,7 +106,7 @@ def process_log_data(spark):
     time_table_path = "time_table" + ".parquet" + "_" + now
 
     # write time table to parquet files partitioned by year and month
-    time_table.write.partitionBy("year").parquet(output + time_table_path)
+    time_table.write.partitionBy("year", "month").parquet(output + time_table_path)
 
     # read in song data to use for songplays table
     df_song_data = spark.read.json(song_data_source)
@@ -132,16 +144,22 @@ def process_log_data(spark):
     now = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
     songplay_table_path = "songplay_table" + ".parquet" + "_" + now
 
-    songplays_table.write.parquet(output + songplay_table_path)
+    songplays_table.write.partitionBy("year", "month").parquet(
+        output + songplay_table_path
+    )
 
 
 @F.udf(t.TimestampType())
 def get_timestamp(ts):
+    """A user-defined function (udf) used to convert string from 'ts' column to a timestamp type.
+    Returns a Spark timestamp type"""
     return datetime.fromtimestamp(ts / 1000.0)
 
 
 @F.udf(t.StringType())
 def get_datetime(ts):
+    """A user-defined function (udf) used to convert string from 'ts' column to a datetime type.
+    Returns a Spark String type"""
     return datetime.fromtimestamp(ts / 1000.0).strftime("%Y-%m-%d %H:%M:%S")
 
 
