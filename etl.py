@@ -25,6 +25,9 @@ def process_song_data(spark):
     Takes in a spark session that used to read and process input song data source.
     A dataframe is created from input data. The dataframe is used to create temporary views from which
     dimensional tables are created and writen to output s3 buckets.
+
+    Args:
+        spark (SparkSession Object).
     """
     # read song data file
     df_song_data = spark.read.json(song_data_source)
@@ -64,6 +67,9 @@ def process_log_data(spark):
     Takes in a spark session that used to read and process input log data source.
     A dataframe is created from input data. The dataframe is used to create temporary views from which
     dimensional tables are created and writen to output s3 buckets.
+
+    Args:
+        spark (SparkSession Object).
     """
     # read log data file
     df_log_data = spark.read.json(log_data_source)
@@ -134,7 +140,9 @@ def process_log_data(spark):
                     artist_id   AS artist_id,
                     sessionId   AS session_id,
                     location    AS location,
-                    userAgent   AS user_agent
+                    userAgent   AS user_agent,
+                    MONTH(timestamp) AS month,
+                    YEAR(timestamp) AS year
             FROM songplays_table_view
             ORDER BY (user_id, session_id)
         """
@@ -151,15 +159,30 @@ def process_log_data(spark):
 
 @F.udf(t.TimestampType())
 def get_timestamp(ts):
-    """A user-defined function (udf) used to convert string from 'ts' column to a timestamp type.
-    Returns a Spark timestamp type"""
+    """A user-defined function (udf) used to convert long from 'ts' column to a timestamp type.
+    Returns a Spark timestamp type
+
+    Args:
+        ts (long): Spark dataframe column
+
+    Returns:
+        datetime
+    """
+
     return datetime.fromtimestamp(ts / 1000.0)
 
 
 @F.udf(t.StringType())
 def get_datetime(ts):
     """A user-defined function (udf) used to convert string from 'ts' column to a datetime type.
-    Returns a Spark String type"""
+    Returns a Spark String type
+
+    Args:
+        ts (long): Spark dataframe column
+
+    Returns:
+        datetime
+    """
     return datetime.fromtimestamp(ts / 1000.0).strftime("%Y-%m-%d %H:%M:%S")
 
 
